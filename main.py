@@ -109,22 +109,22 @@ class Watcher:
             print(f"Failed to send embed notification: {response.status_code} - {response.text}")
 
     def check_for_changes(self):
-        # Check for new commits
+    # Check for new commits
         commits = self.fetch_commits()
         
         if commits:
-            if 'sha' in commits[0]:  # Check if 'sha' key exists
+            if 'sha' in commits[0]:
                 new_commit_sha = commits[0]['sha']
                 if new_commit_sha != self.latest_commit_sha:
                     self.latest_commit_sha = new_commit_sha
                     commit_url = commits[0]['html_url']
-                    commit_message = commits[0]['commit']['message']  # Fetch commit message
+                    commit_message = commits[0]['commit']['message']
                     author_info = {
                         "name": commits[0]['commit']['author']['name'],
                         "url": commits[0]['author']['html_url'] if commits[0].get('author') else "",
                         "icon_url": commits[0]['author']['avatar_url'] if commits[0].get('author') else ""
                     }
-                    # Fetch detailed commit information
+                    
                     commit_details = requests.get(commits[0]['url'], headers={
                         "Authorization": f"token {self.token}",
                         "Accept": "application/vnd.github.v3+json"
@@ -136,14 +136,17 @@ class Watcher:
                         for file in commit_data.get('files', []):
                             file_status = file.get('status')
                             file_name = file.get('filename')
-                            # Format each file based on its status
                             files.append(self.format_file_changes(file_status, file_name))
                         
+                        # Check if files list is empty
+                        if not files:
+                            files.append("What an idiot xd!")
+
                         self.send_discord_embed(
                             title="New Commit to Repository",
                             description=f"There's been **{len(files)}** file changes to [{self.repo}]({commit_url})",
                             url=commit_url,
-                            commit_message=commit_message,  # Pass the commit message
+                            commit_message=commit_message,
                             files=files,
                             author=author_info
                         )
@@ -152,32 +155,32 @@ class Watcher:
 
             else:
                 print("No SHA key found in commits.")
-
         else:
             print("No commits found.")
 
-        # Check for new pull requests
-        pull_requests = self.fetch_pull_requests()
-        
-        if pull_requests:
-            if 'id' in pull_requests[0]:  # Check if 'id' key exists
-                new_pr_id = pull_requests[0]['id']
-                if new_pr_id != self.latest_pr_id:
-                    self.latest_pr_id = new_pr_id
-                    pr_title = pull_requests[0]['title']
-                    pr_url = pull_requests[0]['html_url']
-                    self.send_discord_embed(
-                        title="New Pull Request",
-                        description=pr_title,
-                        url=pr_url,
-                        commit_message="",  # No commit message for PRs
-                        files=[]
-                    )
-                    print(f"Latest PR ID: {self.latest_pr_id}")
+
+            # Check for new pull requests
+            pull_requests = self.fetch_pull_requests()
+            
+            if pull_requests:
+                if 'id' in pull_requests[0]:  # Check if 'id' key exists
+                    new_pr_id = pull_requests[0]['id']
+                    if new_pr_id != self.latest_pr_id:
+                        self.latest_pr_id = new_pr_id
+                        pr_title = pull_requests[0]['title']
+                        pr_url = pull_requests[0]['html_url']
+                        self.send_discord_embed(
+                            title="New Pull Request",
+                            description=pr_title,
+                            url=pr_url,
+                            commit_message="",  # No commit message for PRs
+                            files=[]
+                        )
+                        print(f"Latest PR ID: {self.latest_pr_id}")
+                else:
+                    print("Latest PR does not have an 'id' key.")
             else:
-                print("Latest PR does not have an 'id' key.")
-        else:
-            print("No pull requests found.")
+                print("No pull requests found.")
 
         # Check for new branches
         branches = self.fetch_branches()
@@ -194,3 +197,4 @@ class Watcher:
                     author=None
                 )
             self.latest_branches.update(new_branches)
+
