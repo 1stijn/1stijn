@@ -39,30 +39,51 @@ class Watcher:
             print(f"Error fetching pull requests: {response.status_code} - {response.text}")
             return []
 
-    def send_discord_embed(self, title, description, url, files=None):
+    def format_file_changes(self, file_status, file_name):
+        """Format file changes with rich text for Discord embed."""
+        if file_status == "added":
+            return f"+ {file_name}"  # Green text for added files
+        elif file_status == "modified":
+            return f"! {file_name}"  # Yellow/Orange text for modified files
+        elif file_status == "removed":
+            return f"- {file_name}"  # Red text for deleted files
+        else:
+            return f"{file_name}"  # Default format for other statuses
+
+    def send_discord_embed(self, title, description, url, commit_message, files=None, author=None):
+        formatted_files = "\n".join(files) if files else ""
+        
         embed = {
             "embeds": [
                 {
+                    "type": "rich",
                     "title": title,
-                    "description": description,
+                    "description": f">>> {description}\n```diff\n{formatted_files}\n```",
                     "url": url,
-                    "color": 3066993,  # Color for the embed (in decimal)
+                    "color": 0x4CAF50,  # Green for the embed color
+                    "author": {
+                        "name": author.get('name') if author else "Unknown Author",
+                        "url": author.get('url') if author else "",
+                        "icon_url": author.get('icon_url') if author else ""
+                    },
+                    "fields": [
+                        {
+                            "name": "`Commit SHA`",
+                            "value": f"`{self.latest_commit_sha}`",
+                            "inline": True
+                        },
+                        {
+                            "name": "Commit Message",
+                            "value": f"```fix\n{commit_message}\n```",
+                            "inline": False
+                        }
+                    ],
                     "footer": {
                         "text": "GitHub Notifications"
                     }
                 }
             ]
         }
-        
-        if files:
-            file_changes = "\n".join(files)
-            embed['embeds'][0]['fields'] = [
-                {
-                    "name": "File Changes",
-                    "value": file_changes,
-                    "inline": False
-                }
-            ]
         
         response = requests.post(self.discord_webhook_url, json=embed)
         
@@ -80,6 +101,12 @@ class Watcher:
                 if new_commit_sha != self.latest_commit_sha:
                     self.latest_commit_sha = new_commit_sha
                     commit_url = commits[0]['html_url']
+                    commit_message = commits[0]['commit']['message']  # Fetch commit message
+                    author_info = {
+                        "name": commits[0]['commit']['author']['name'],
+                        "url": commits[0]['author']['html_url'] if commits[0].get('author') else "",
+                        "icon_url": commits[0]['author']['avatar_url'] if commits[0].get('author') else ""
+                    }
                     # Fetch detailed commit information
                     commit_details = requests.get(commits[0]['url'], headers={
                         "Authorization": f"token {self.token}",
@@ -92,13 +119,16 @@ class Watcher:
                         for file in commit_data.get('files', []):
                             file_status = file.get('status')
                             file_name = file.get('filename')
-                            files.append(f"{file_status.capitalize()}: {file_name}")
+                            # Format each file based on its status
+                            files.append(self.format_file_changes(file_status, file_name))
                         
                         self.send_discord_embed(
-                            title="New Commit",
-                            description=f"Commit SHA: {new_commit_sha}",
+                            title="New Commit to Repository",
+                            description=f"There's been **{len(files)}** file changes to [{self.repo}]({commit_url})",
                             url=commit_url,
-                            files=files
+                            commit_message=commit_message,  # Pass the commit message
+                            files=files,
+                            author=author_info
                         )
                     else:
                         print(f"Error fetching commit details: {commit_details.status_code} - {commit_details.text}")
@@ -121,7 +151,9 @@ class Watcher:
                     self.send_discord_embed(
                         title="New Pull Request",
                         description=pr_title,
-                        url=pr_url
+                        url=pr_url,
+                        commit_message="",  # No commit message for PRs
+                        files=[]
                     )
                     print(f"Latest PR ID: {self.latest_pr_id}")
             else:
@@ -130,9 +162,6 @@ class Watcher:
             print("No pull requests found.")
 
 if __name__ == "__main__":
-    repo = "1stijn/1stijn"  # Replace with your GitHub repository
-    token = "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"  # Replace with your GitHub token
-    discord_webhook_url = "https://discord.com/api/webhooks/1290363382611968002/nDeOF1RG4jcPKnxM7PD_2RSJSuNenv8wlsEQlKEQrwkYlK4lWNPDZTlE1yrFxRqV9254"  # Replace with your Discord webhook URL
     
     watcher = Watcher(repo, token, discord_webhook_url)
     
