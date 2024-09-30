@@ -8,6 +8,7 @@ class Watcher:
         self.discord_webhook_url = discord_webhook_url
         self.latest_commit_sha = None
         self.latest_pr_id = None
+        self.latest_branches = set()  # Keep track of known branches
 
     def fetch_commits(self):
         url = f"https://api.github.com/repos/{self.repo}/commits"
@@ -37,6 +38,21 @@ class Watcher:
             return response.json()
         else:
             print(f"Error fetching pull requests: {response.status_code} - {response.text}")
+            return []
+
+    def fetch_branches(self):
+        url = f"https://api.github.com/repos/{self.repo}/branches"
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            return [branch['name'] for branch in response.json()]
+        else:
+            print(f"Error fetching branches: {response.status_code} - {response.text}")
             return []
 
     def format_file_changes(self, file_status, file_name):
@@ -93,6 +109,7 @@ class Watcher:
             print(f"Failed to send embed notification: {response.status_code} - {response.text}")
 
     def check_for_changes(self):
+        # Check for new commits
         commits = self.fetch_commits()
         
         if commits:
@@ -139,6 +156,7 @@ class Watcher:
         else:
             print("No commits found.")
 
+        # Check for new pull requests
         pull_requests = self.fetch_pull_requests()
         
         if pull_requests:
@@ -161,10 +179,18 @@ class Watcher:
         else:
             print("No pull requests found.")
 
-if __name__ == "__main__":
-    fddffdfdfd
-    watcher = Watcher(repo, token, discord_webhook_url)
-    
-    while True:
-        watcher.check_for_changes()
-        time.sleep(30)  # Sleep for 30 seconds before checking again
+        # Check for new branches
+        branches = self.fetch_branches()
+        new_branches = set(branches) - self.latest_branches  # Find new branches
+        
+        if new_branches:
+            for branch in new_branches:
+                self.send_discord_embed(
+                    title="New Branch Created",
+                    description=f"A new branch **{branch}** has been created in [{self.repo}](https://github.com/{self.repo}/tree/{branch}).",
+                    url=f"https://github.com/{self.repo}/tree/{branch}",
+                    commit_message="",  # No commit message for branch creation
+                    files=[],
+                    author=None
+                )
+            self.latest_branches.update(new_branches)
