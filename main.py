@@ -58,11 +58,11 @@ class Watcher:
     def format_file_changes(self, file_status, file_name):
         """Format file changes with rich text for Discord embed."""
         if file_status == "added":
-            return f"+ {file_name}"  # Green text for added files
+            return f"+ Added: {file_name}"  # Green text for added files
         elif file_status == "modified":
-            return f"! {file_name}"  # Yellow/Orange text for modified files
+            return f"! Modified: {file_name}"  # Yellow/Orange text for modified files
         elif file_status == "removed":
-            return f"- {file_name}"  # Red text for deleted files
+            return f"- Removed: {file_name}"  # Red text for deleted files
         else:
             return f"{file_name}"  # Default format for other statuses
 
@@ -76,7 +76,7 @@ class Watcher:
                     "title": title,
                     "description": f">>> {description}\n```diff\n{formatted_files}\n```",
                     "url": url,
-                    "color": 0x4CAF50,  # Green for the embed color
+                    "color": 0xff0092,  # Green for the embed color
                     "author": {
                         "name": author.get('name') if author else "Unknown Author",
                         "url": author.get('url') if author else "",
@@ -94,9 +94,6 @@ class Watcher:
                             "inline": False
                         }
                     ],
-                    "footer": {
-                        "text": "GitHub Notifications"
-                    }
                 }
             ]
         }
@@ -197,4 +194,3 @@ class Watcher:
                     author=None
                 )
             self.latest_branches.update(new_branches)
-
